@@ -125,41 +125,69 @@ class AdministradorMemoria:
 
 class SistemaArchivos:
     def __init__(self):
-        self.directorio_actual = "raiz"
+        self.directorio_actual = ["raiz"]  # Pila para mantener la ruta actual
         self.sistema = {"raiz": {}}
 
+    def _ruta_actual(self):
+        #Devuelve el directorio actual como un diccionario
+        directorio = self.sistema
+        for carpeta in self.directorio_actual:
+            directorio = directorio[carpeta]
+        return directorio
+
     def mkdir(self, nombre):
-        if nombre in self.sistema[self.directorio_actual]:
+        directorio = self._ruta_actual()
+        if nombre in directorio:
             return False
-        self.sistema[self.directorio_actual][nombre] = {}
+        directorio[nombre] = {}
         return True
 
     def touch(self, nombre, contenido=""):
-        if nombre in self.sistema[self.directorio_actual]:
+        directorio = self._ruta_actual()
+        if nombre in directorio:
             return False
-        self.sistema[self.directorio_actual][nombre] = contenido
+        directorio[nombre] = contenido
         return True
 
     def ls(self):
-        return list(self.sistema[self.directorio_actual].keys())
+        directorio = self._ruta_actual()
+        return list(directorio.keys())
 
     def rm(self, nombre):
-        if nombre not in self.sistema[self.directorio_actual]:
+        directorio = self._ruta_actual()
+        if nombre not in directorio:
             return False
-        del self.sistema[self.directorio_actual][nombre]
+        del directorio[nombre]
         return True
 
     def leer_archivo(self, nombre):
-        if nombre not in self.sistema[self.directorio_actual]:
+        directorio = self._ruta_actual()
+        if nombre not in directorio or isinstance(directorio[nombre], dict):
             return None
-        return self.sistema[self.directorio_actual][nombre]
+        return directorio[nombre]
 
     def escribir_archivo(self, nombre, contenido):
-        if nombre not in self.sistema[self.directorio_actual]:
+        directorio = self._ruta_actual()
+        if nombre not in directorio or isinstance(directorio[nombre], dict):
             return False
-        self.sistema[self.directorio_actual][nombre] = contenido
+        directorio[nombre] = contenido
         return True
 
+    def cd(self, nombre):
+        directorio = self._ruta_actual()
+        if nombre in directorio and isinstance(directorio[nombre], dict):
+            self.directorio_actual.append(nombre)
+            return True
+        return False
+
+    def cd_up(self):
+        if len(self.directorio_actual) > 1:
+            self.directorio_actual.pop()
+            return True
+        return False
+
+    def ruta_completa(self):
+        return "/".join(self.directorio_actual)
 
 class SistemaOperativoSimulador:
     def __init__(self):
@@ -270,6 +298,8 @@ class SistemaOperativoSimulador:
         tk.Button(frame, text="Eliminar", command=self._eliminar_archivo).pack(pady=5)
         tk.Button(frame, text="Leer Archivo", command=self._leer_archivo).pack(pady=5)
         tk.Button(frame, text="Escribir Archivo", command=self._escribir_archivo).pack(pady=5)
+        tk.Button(frame, text="Cambiar Directorio", command=self._cambiar_directorio).pack(pady=5)
+        tk.Button(frame, text="Regresar", command=self._regresar_directorio).pack(pady=5)
 
         self.resultado_archivos = tk.Text(frame, height=10, width=70)
         self.resultado_archivos.pack(pady=10)
@@ -383,8 +413,29 @@ class SistemaOperativoSimulador:
             messagebox.showinfo("Archivo Actualizado", f"Contenido de '{nombre}' actualizado")
         else:
             messagebox.showerror("Error", f"El archivo '{nombre}' no existe")
+    
+    def _listar_contenido(self):
+        contenido = self.sistema_archivos.ls()
+        ruta_actual = self.sistema_archivos.ruta_completa()
+        self.resultado_archivos.delete(1.0, tk.END)
+        self.resultado_archivos.insert(tk.END, f"Directorio Actual: {ruta_actual}\n")
+        self.resultado_archivos.insert(tk.END, f"Contenido: {contenido}")
 
+    def _cambiar_directorio(self):
+        nombre = self.nombre_archivo_entry.get()
+        if self.sistema_archivos.cd(nombre):
+            messagebox.showinfo("Cambio de Directorio", f"Ahora estás en '{self.sistema_archivos.ruta_completa()}'")
+            self._listar_contenido()
+        else:
+            messagebox.showerror("Error", f"El directorio '{nombre}' no existe")
 
+    def _regresar_directorio(self):
+        if self.sistema_archivos.cd_up():
+            messagebox.showinfo("Cambio de Directorio", f"Ahora estás en '{self.sistema_archivos.ruta_completa()}'")
+            self._listar_contenido()
+        else:
+            messagebox.showerror("Error", "Ya estás en la raíz")
+    
 # Ejecución principal
 if __name__ == "__main__":
     sistema_operativo = SistemaOperativoSimulador()
